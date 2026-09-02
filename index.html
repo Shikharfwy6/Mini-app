@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Mini App - Earn Rewards</title>
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Adsgram SDK -->
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--tg-theme-bg-color, #1a1a1a);
+            color: var(--tg-theme-text-color, #ffffff);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: var(--tg-theme-secondary-bg-color, #242424);
+            border-radius: 16px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .user-card {
+            margin-bottom: 24px;
+        }
+
+        .user-card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+            color: var(--tg-theme-hint-color, #aaaaaa);
+        }
+
+        .balance-box {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+
+        .balance-amount {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #f39c12;
+            margin-top: 4px;
+        }
+
+        .btn-watch-ad {
+            background-color: var(--tg-theme-button-color, #2481cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 12px;
+            padding: 16px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            transition: transform 0.1s ease, opacity 0.2s;
+        }
+
+        .btn-watch-ad:active {
+            transform: scale(0.98);
+        }
+
+        .btn-watch-ad:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status-msg {
+            margin-top: 16px;
+            font-size: 0.9rem;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="user-card">
+            <h2 id="username-display">User</h2>
+            <div class="balance-box">
+                <div>Total Balance</div>
+                <div class="balance-amount" id="balance">0</div>
+            </div>
+        </div>
+
+        <button class="btn-watch-ad" id="ad-btn" onclick="watchAd()">Watch Ad & Earn</button>
+        <div class="status-msg" id="status"></div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        const user = tg.initDataUnsafe?.user || { id: "12345678", first_name: "TestUser" };
+        document.getElementById("username-display").innerText = `Hello, ${user.first_name}!`;
+
+        // Adsgram Controller Setup (Replace 'YOUR_BLOCK_ID' with actual Block ID)
+        const AdController = window.Adsgram ? window.Adsgram.init({ blockId: "YOUR_BLOCK_ID" }) : null;
+
+        // Fetch User Balance on Load
+        async function fetchUserData() {
+            try {
+                const response = await fetch(`/api/user/${user.id}`);
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById("balance").innerText = data.user.balance;
+                }
+            } catch (err) {
+                console.error("Error loading user data:", err);
+            }
+        }
+
+        async function watchAd() {
+            const btn = document.getElementById("ad-btn");
+            const status = document.getElementById("status");
+
+            if (!AdController) {
+                status.style.color = "#e74c3c";
+                status.innerText = "Ad controller not initialized properly.";
+                return;
+            }
+
+            btn.disabled = true;
+            status.innerText = "Loading Ad...";
+
+            AdController.show().then(async (result) => {
+                // Reward User on Backend
+                status.style.color = "#2ecc71";
+                status.innerText = "Ad completed! Updating reward...";
+
+                try {
+                    const res = await fetch('/api/reward', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: user.id, username: user.username || user.first_name, reward: 10 })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        document.getElementById("balance").innerText = data.balance;
+                        status.innerText = "+10 Coins added!";
+                    }
+                } catch (err) {
+                    status.style.color = "#e74c3c";
+                    status.innerText = "Failed to update reward on server.";
+                }
+                btn.disabled = false;
+            }).catch((error) => {
+                status.style.color = "#e74c3c";
+                status.innerText = "Ad skipped or failed to load.";
+                btn.disabled = false;
+            });
+        }
+
+        fetchUserData();
+    </script>
+</body>
+</html>
+
