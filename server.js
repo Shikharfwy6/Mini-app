@@ -5,12 +5,20 @@ const path = require('path');
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB Cloud'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// Serve static files from root directory
+app.use(express.static(__dirname));
+
+// MongoDB Connection Configuration
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+    console.error("CRITICAL ERROR: MONGODB_URI environment variable is not defined.");
+} else {
+    mongoose.connect(MONGODB_URI)
+        .then(() => console.log('Connected to MongoDB Cloud'))
+        .catch(err => console.error('MongoDB connection error:', err));
+}
 
 // User Database Schema
 const userSchema = new mongoose.Schema({
@@ -20,7 +28,12 @@ const userSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', userSchema);
 
-// API 1: Fetch Balance
+// Route 1: Serve Frontend index.html at root route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Route 2: API Fetch User Balance
 app.get('/api/user/:id', async (req, res) => {
     try {
         let user = await User.findOne({ userId: req.params.id });
@@ -33,7 +46,7 @@ app.get('/api/user/:id', async (req, res) => {
     }
 });
 
-// API 2: Add Reward
+// Route 3: API Add Reward
 app.post('/api/reward', async (req, res) => {
     const { userId, username, reward } = req.body;
     try {
@@ -47,6 +60,9 @@ app.post('/api/reward', async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
+// Export app for Vercel Serverless environment
+module.exports = app;
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
