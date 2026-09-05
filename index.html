@@ -6,8 +6,10 @@
     <title>Telegram Mini App - Earn Rewards</title>
     <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Adsgram SDK -->
-    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+    
+    <!-- Ads Galaxy SDK -->
+    <script src="https://app.adsgalaxy.online/sdk.js?id=61"></script>
+
     <style>
         * {
             box-sizing: border-box;
@@ -111,10 +113,7 @@
         const user = tg.initDataUnsafe?.user || { id: "12345678", first_name: "TestUser" };
         document.getElementById("username-display").innerText = `Hello, ${user.first_name}!`;
 
-        // Adsgram Controller Setup (Replace 'YOUR_BLOCK_ID' with actual Block ID)
-        const AdController = window.Adsgram ? window.Adsgram.init({ blockId: "YOUR_BLOCK_ID" }) : null;
-
-        // Fetch User Balance on Load
+        // Fetch User Balance on App Load
         async function fetchUserData() {
             try {
                 const response = await fetch(`/api/user/${user.id}`);
@@ -131,45 +130,56 @@
             const btn = document.getElementById("ad-btn");
             const status = document.getElementById("status");
 
-            if (!AdController) {
+            if (typeof window.showAdsGalaxy !== 'function') {
                 status.style.color = "#e74c3c";
-                status.innerText = "Ad controller not initialized properly.";
+                status.innerText = "Ads Galaxy SDK not loaded properly.";
                 return;
             }
 
             btn.disabled = true;
+            status.style.color = "#ffffff";
             status.innerText = "Loading Ad...";
 
-            AdController.show().then(async (result) => {
-                // Reward User on Backend
-                status.style.color = "#2ecc71";
-                status.innerText = "Ad completed! Updating reward...";
+            window.showAdsGalaxy()
+                .then(async function (result) {
+                    status.style.color = "#2ecc71";
+                    status.innerText = "Ad completed! Updating reward...";
 
-                try {
-                    const res = await fetch('/api/reward', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: user.id, username: user.username || user.first_name, reward: 10 })
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        document.getElementById("balance").innerText = data.balance;
-                        status.innerText = "+10 Coins added!";
+                    try {
+                        const res = await fetch('/api/reward', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                userId: user.id, 
+                                username: user.username || user.first_name, 
+                                reward: 10,
+                                requestId: result?.request_id || null
+                            })
+                        });
+                        
+                        const data = await res.json();
+                        if (data.success) {
+                            document.getElementById("balance").innerText = data.balance;
+                            status.innerText = "+10 Coins added!";
+                        } else {
+                            status.style.color = "#e74c3c";
+                            status.innerText = "Failed to update balance.";
+                        }
+                    } catch (err) {
+                        status.style.color = "#e74c3c";
+                        status.innerText = "Server error while adding reward.";
                     }
-                } catch (err) {
+                    btn.disabled = false;
+                })
+                .catch(function (error) {
+                    console.log(error.code, error.message);
                     status.style.color = "#e74c3c";
-                    status.innerText = "Failed to update reward on server.";
-                }
-                btn.disabled = false;
-            }).catch((error) => {
-                status.style.color = "#e74c3c";
-                status.innerText = "Ad skipped or failed to load.";
-                btn.disabled = false;
-            });
+                    status.innerText = "Ad skipped or failed to load.";
+                    btn.disabled = false;
+                });
         }
 
         fetchUserData();
     </script>
 </body>
 </html>
-
